@@ -3,6 +3,7 @@
 #include <assert.h>
 #include <stdio.h>
 #include "kann.h"
+#include "getopt.h"
 #include "kann_extra/kann_data.h"
 
 static kann_t *model_gen(int n_in, int n_out, int loss_type, int n_h_layers, int n_h_neurons, float h_dropout)

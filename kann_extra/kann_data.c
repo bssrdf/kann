@@ -12,6 +12,12 @@ KSTREAM_INIT(gzFile, gzread, 16384)
 KSTREAM_INIT(int, read, 16384)
 #endif
 
+#ifdef WIN32
+#define strdup _strdup
+#define fileno _fileno
+#endif
+
+
 kann_data_t *kann_data_read(const char *fn)
 {
 	kstream_t *ks;
