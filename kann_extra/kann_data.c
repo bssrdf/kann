@@ -1,6 +1,7 @@
 #include <string.h>
 #include <assert.h>
 #include <stdio.h>
+#include <errno.h>
 #include "kseq.h"
 #include "kann_data.h"
 #ifdef HAVE_ZLIB
@@ -32,6 +33,10 @@ kann_data_t *kann_data_read(const char *fn)
 	int fp;
 	fp = fn && strcmp(fn, "-")? open(fn, O_RDONLY) : fileno(stdin);
 #endif
+	if (!fp) {
+		fprintf(stderr, "gzopen of '%s' failed: %s.\n", fn,
+			strerror(errno));
+	}
 	ks = ks_init(fp);
 
 	d = (kann_data_t*)calloc(1, sizeof(kann_data_t));
