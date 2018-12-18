@@ -1,6 +1,7 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <assert.h>
+#include "getopt.h"
 #include "kann_extra/kann_data.h"
 #include "kann.h"
 
@@ -53,7 +54,8 @@ int main(int argc, char *argv[])
 
 	if (y) { // training
 		assert(y->n_col == 10);
-		if (n_threads > 1) kann_mt(ann, n_threads, mini_size);
+		fprintf(stdout, "start training... \n");
+		if (n_threads > 1) kann_mt(ann, n_threads, mini_size);		
 		kann_train_fnn1(ann, lr, mini_size, max_epoch, max_drop_streak, frac_val, x->n_row, x->x, y->x);
 		if (fn_out) kann_save(fn_out, ann);
 		kann_data_free(y);

@@ -226,6 +226,9 @@ void kann_save(const char *fn, kann_t *ann);
 kann_t *kann_load_fp(FILE *fp);
 kann_t *kann_load(const char *fn);
 
+void kann_print_graph(FILE *fp, const kann_t *ann);
+
+
 #ifdef __cplusplus
 }
 #endif

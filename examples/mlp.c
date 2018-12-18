@@ -11,6 +11,9 @@ static kann_t *model_gen(int n_in, int n_out, int loss_type, int n_h_layers, int
 	int i;
 	kad_node_t *t;
 	t = kann_layer_input(n_in);
+	printf(" input layer node type = %d \n", t->flag);
+	for (i = 0; i < t->n_d; ++i)
+		printf("input layer dim %d = %d \n", i, t->d[i]);
 	for (i = 0; i < n_h_layers; ++i)
 		t = kann_layer_dropout(kad_relu(kann_layer_dense(t, n_h_neurons)), h_dropout);
 	return kann_new(kann_layer_cost(t, n_out, loss_type), 0);
@@ -22,15 +25,16 @@ int main(int argc, char *argv[])
 	int i, j, c, n_h_neurons = 64, n_h_layers = 1, seed = 11, n_threads = 1;
 	kann_data_t *in = 0;
 	kann_t *ann = 0;
-	char *out_fn = 0, *in_fn = 0;
+	char *out_fn = 0, *in_fn = 0, *out_fg = 0;
 	float lr = 0.001f, frac_val = 0.1f, h_dropout = 0.0f;
 
-	while ((c = getopt(argc, argv, "n:l:s:r:m:B:o:i:d:v:Mt:")) >= 0) {
+	while ((c = getopt(argc, argv, "n:l:s:r:m:B:o:i:d:g:v:M:t:")) >= 0) {
 		if (c == 'n') n_h_neurons = atoi(optarg);
 		else if (c == 'l') n_h_layers = atoi(optarg);
 		else if (c == 's') seed = atoi(optarg);
 		else if (c == 'i') in_fn = optarg;
 		else if (c == 'o') out_fn = optarg;
+		else if (c == 'g') out_fg = optarg;
 		else if (c == 'r') lr = atof(optarg);
 		else if (c == 'm') max_epoch = atoi(optarg);
 		else if (c == 'B') mini_size = atoi(optarg);
@@ -46,6 +50,7 @@ int main(int argc, char *argv[])
 		fprintf(fp, "  Model construction:\n");
 		fprintf(fp, "    -i FILE     read trained model from FILE []\n");
 		fprintf(fp, "    -o FILE     save trained model to FILE []\n");
+		fprintf(fp, "    -g FILE     save computational graph to FILE []\n");
 		fprintf(fp, "    -s INT      random seed [%d]\n", seed);
 		fprintf(fp, "    -l INT      number of hidden layers [%d]\n", n_h_layers);
 		fprintf(fp, "    -n INT      number of hidden neurons per layer [%d]\n", n_h_neurons);
@@ -76,8 +81,13 @@ int main(int argc, char *argv[])
 		kann_data_t *out;
 		out = kann_data_read(argv[optind+1]);
 		assert(in->n_row == out->n_row);
+		printf("data nrow=%d, ncol=%d \n", in->n_row, in->n_col);
 		if (ann) assert(kann_dim_out(ann) == out->n_col);
 		else ann = model_gen(in->n_col, out->n_col, loss_type, n_h_layers, n_h_neurons, h_dropout);
+		if (out_fg) {
+			FILE* fp = fopen(out_fg, "w");
+			kann_print_graph(fp, ann);
+		}
 		if (n_threads > 1) kann_mt(ann, n_threads, mini_size);
 		kann_train_fnn1(ann, lr, mini_size, max_epoch, max_drop_streak, frac_val, in->n_row, in->x, out->x);
 		if (out_fn) kann_save(out_fn, ann);

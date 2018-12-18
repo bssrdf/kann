@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <stdio.h>
 #include <assert.h>
 #include <stdarg.h>
 #include <string.h>
@@ -431,6 +432,7 @@ kad_node_t **kad_compile_array(int *n_node, int n_roots, kad_node_t **roots)
 		roots[i]->tmp = 1; /* mark the root */
 		kv_push(kad_node_p, stack, roots[i]);
 	}
+	printf("stack.n = %d, stack.m = %d \n", stack.n, stack.m);
 	while (stack.n) {
 		kad_node_t *p = kv_pop(stack);
 		for (i = 0; i < p->n_child; ++i) {
@@ -438,6 +440,7 @@ kad_node_t **kad_compile_array(int *n_node, int n_roots, kad_node_t **roots)
 			if (q->tmp == 0) kv_push(kad_node_p, stack, q);
 			q->tmp += 1<<1;
 		}
+		printf("p->n_child = %d, p->tmp = %d \n", p->n_child, p->tmp);
 	}
 
 	/* topological sorting (Kahn's algorithm) */
@@ -463,6 +466,9 @@ kad_node_t **kad_compile_array(int *n_node, int n_roots, kad_node_t **roots)
 	for (i = 0; i < (int)a.n>>1; ++i) { /* reverse a.a[] */
 		kad_node_p t;
 		t = a.a[i], a.a[i] = a.a[a.n-1-i], a.a[a.n-1-i] = t;
+	}
+	for (i = 0; i < (int)a.n; ++i) { /* check cycles; no cycles if constructed with kad_add() etc */
+		printf("%d, %d, %d, %d \n", i, a.a[i]->n_d, a.a[i]->n_child, kad_len(a.a[i]));
 	}
 	kad_allocate_internal(a.n, a.a);
 

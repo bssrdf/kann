@@ -1,6 +1,7 @@
 #include <math.h>
 #include <float.h>
 #include <string.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
 #include <stdarg.h>
@@ -75,7 +76,7 @@ kann_t *kann_new(kad_node_t *cost, int n_rest, ...)
 	cost->ext_flag |= KANN_F_COST;
 	a = (kann_t*)calloc(1, sizeof(kann_t));
 	a->v = kad_compile_array(&a->n, n_roots, roots);
-
+	printf("ann -> n = %d, n_roots = %d \n", a->n, n_roots);
 	for (i = 0; i < a->n; ++i) {
 		if (a->v[i]->pre) has_recur = 1;
 		if (kad_is_pivot(a->v[i])) has_pivot = 1;
@@ -87,6 +88,11 @@ kann_t *kann_new(kad_node_t *cost, int n_rest, ...)
 		a->v = kad_compile_array(&a->n, n_roots, roots);
 	}
 	kad_ext_collate(a->n, a->v, &a->x, &a->g, &a->c);
+	for (i = 0; i < a->n; ++i)
+		if (a->v[i]->op == 12)
+			printf("node %d is op_select n_child = %d \n", i, a->v[i]->n_child);
+	for (i = 0; i < a->n; ++i)
+		printf("node %d is op %s \n", i, kad_op_name[a->v[i]->op]);
 	free(roots);
 	return a;
 }
@@ -484,6 +490,10 @@ kann_t *kann_load(const char *fn)
 	return ann;
 }
 
+void kann_print_graph(FILE *fp, const kann_t* ann) {
+	kad_print_graph(fp, ann->n, ann->v);
+}
+
 /**********************************************
  *** @@LAYER: layers and model generation ***
  **********************************************/
@@ -818,6 +828,10 @@ int kann_train_fnn1(kann_t *ann, float lr, int mini_size, int max_epoch, int max
 	if (n_in < 0 || n_out < 0) return -1;
 	n_var = kann_size_var(ann);
 	n_const = kann_size_const(ann);
+	printf("n_in  = %d\n", n_in);
+	printf("n_out = %d\n", n_out);
+	printf("n_var = %d\n", n_var);
+	printf("n_const = %d\n", n_const);
 	r = (float*)calloc(n_var, sizeof(float));
 	shuf = (int*)malloc(n * sizeof(int));
 	x = (float**)malloc(n * sizeof(float*));
