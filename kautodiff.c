@@ -6,6 +6,10 @@
 #include <float.h>
 #include <math.h>
 #include "kautodiff.h"
+#ifdef HAVE_CUDA
+#include "cuda_helper.h"
+#endif
+
 
 typedef struct {
 	uint64_t s[2];
@@ -469,6 +473,7 @@ kad_node_t **kad_compile_array(int *n_node, int n_roots, kad_node_t **roots)
 	}
 	for (i = 0; i < (int)a.n; ++i) { /* check cycles; no cycles if constructed with kad_add() etc */
 		printf("%d, %d, %d, %d \n", i, a.a[i]->n_d, a.a[i]->n_child, kad_len(a.a[i]));
+		if (a.a[i]->n_d == 2) printf("%d, dim1 = %d, dim2 = %d \n", i, a.a[i]->d[0], a.a[i]->d[1]);
 	}
 	kad_allocate_internal(a.n, a.a);
 
@@ -901,6 +906,40 @@ void kad_sgemm_simple(int trans_A, int trans_B, int M, int N, int K, const float
 {
 	cblas_sgemm(CblasRowMajor, trans_A? CblasTrans : CblasNoTrans, trans_B? CblasTrans : CblasNoTrans, M, N, K, 1.0f, A, trans_A? M : K, B, trans_B? K : N, 1.0f, C, N);
 }
+#elif defined(HAVE_CUDA)
+
+void kad_sgemm_simple(int trans_A, int trans_B, int M, int N, int K, const float *A, const float *B, float *C)
+{
+	float *d_A, *d_B, *d_C;
+	const float alpha = 1.0f;
+	const float beta = 0.0f;
+	unsigned int size_A = M * K;
+	unsigned int mem_size_A = sizeof(float) * size_A;
+	unsigned int size_B = K * N;
+	unsigned int mem_size_B = sizeof(float) * size_B;
+	unsigned int size_C = M * N;
+	unsigned int mem_size_C = sizeof(float) * size_C;
+
+	cudaMalloc((void **)&d_C, mem_size_C);	
+	cudaMalloc((void **)&d_A, mem_size_A);
+	cudaMalloc((void **)&d_B, mem_size_B);
+	cudaMemcpy(d_A, A, mem_size_A, cudaMemcpyHostToDevice);
+	cudaMemcpy(d_B, B, mem_size_B, cudaMemcpyHostToDevice);
+	cublasHandle_t handle;
+	cublasCreate(&handle);
+	if (!trans_A && trans_B) {		
+		cublasSgemm(handle, CUBLAS_OP_T, CUBLAS_OP_N, N, M, K, &alpha, d_B, K, d_A, K, &beta, d_C, N);		
+	}	else if (!trans_A && !trans_B) {		
+		cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, N, M, K, &alpha, d_B, N, d_A, K, &beta, d_C, N);		
+	}	else if (trans_A && !trans_B) {
+        cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_T, N, M, K, &alpha, d_B, N, d_A, M, &beta, d_C, N);		
+	}	else abort(); /* not implemented for (trans_A && trans_B) */
+	cudaMemcpy(C, d_C, mem_size_C, cudaMemcpyDeviceToHost);
+	cublasDestroy(handle);
+	cudaFree(d_A);
+	cudaFree(d_B);
+	cudaFree(d_C);
+}
 #else
 void kad_sgemm_simple(int trans_A, int trans_B, int M, int N, int K, const float *A, const float *B, float *C) /* simplified BLAS sgemm */
 {
@@ -1117,8 +1156,10 @@ int kad_op_cmul(kad_node_t *p, int action)
 		p->n_d = 2, p->d[0] = n_a_row, p->d[1] = n_b_row;
 	} else if (action == KAD_FORWARD) {
 		memset(p->x, 0, n_a_row * n_b_row * sizeof(float));
-		if (q[0]->x && q[1]->x)
+		if (q[0]->x && q[1]->x) {
+			//printf("n_a_row = %d, n_b_row = %d, n_col = %d, n_a_col = %d, n_b_col = %d\n", n_a_row, n_b_row, n_col, n_a_col, n_b_col);
 			kad_sgemm_simple(0, 1, n_a_row, n_b_row, n_col, q[0]->x, q[1]->x, p->x); /* Y = X * trans(W) */
+		}
 	} else if (action == KAD_BACKWARD) {
 		if (kad_is_back(q[0]) && q[1]->x)
 			kad_sgemm_simple(0, 0, n_a_row, n_col, n_b_row, p->g, q[1]->x, q[0]->g); /* G_x <- G_y * W */

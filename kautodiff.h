@@ -32,6 +32,7 @@
 #include <stdio.h>
 #include <stdint.h>
 
+
 #ifdef __STRICT_ANSI__
 #define inline
 #endif
